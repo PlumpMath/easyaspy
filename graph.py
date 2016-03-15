@@ -1,11 +1,18 @@
 import networkx as _nx
 import matplotlib.pyplot as _plt
 from mpl_toolkits.mplot3d import Axes3D as _axes
-from matplotlib import animation as _anim
-import numpy as _np
+from numpy import array as _array
+
+def converter(procedure):
+	"Convert adjacency list to graph before passing to procedure."
+	def _convert(g,*args,**kwargs):
+		if not type(g) is _nx.Graph:
+			g = of(g)
+		return procedure(g,*args,**kwargs)
+	return _convert
 
 def of(edges):
-	"Shorthand for NetworkX graph from adjacency list."
+	"Graph from adjacency list."
 	g = _nx.Graph()
 	g.add_edges_from(edges)
 	return g
@@ -26,7 +33,7 @@ def attributer(attr,get):
 			result = get(g,*args,**kwargs)
 			_nx.set_node_attributes(g, attr, result)
 		return _nx.get_node_attributes(g,attr)
-	return _get_attr
+	return converter(_get_attr)
 
 def layout(g, dim=3, k=None):
 	"Graph nodes are assigned an (x,y,z)."
@@ -34,84 +41,37 @@ def layout(g, dim=3, k=None):
 	xyz = _nx.spring_layout(g, dim=3, k=k)
 	return xyz
 
-xyz=attributer('position',layout)
-xyz.__doc__="Set of nodes with (x,y,z)."
+xyz = attributer('position',layout)
+xyz.__doc__ = '[0,1,...] -> {0:(x,y,z),1:(x,y,z),...}'
 
-degrees=attributer('degree',lambda g: g.degree())
-degrees.__doc__="Set of nodes with degree."
+degrees = attributer('degree',lambda g: g.degree())
+degrees.__doc__ = '[(1,2),(2,3)] -> {1:1,2:2,3:1}'
+
+def plotter(finish):
+	def _lines(g):
+		"Graph -> [((x,y,z),(x,y,z)),...]"
+		verts = xyz(g)
+		return _array(list(map(lambda edge: (verts[edge[0]],verts[edge[1]]), g.edges())))
+
+	def _plot(g, *args, **kwargs):
+		"Plot a graph."
+		fig = _plt.figure()
+		ax = _axes(fig)
+		ax_plot = ax.plot
+
+		for line in _lines(g):
+			ax_plot(line[:,0],line[:,1],line[:,2])
+
+		return finish(fig,ax,*args,**kwargs)
+
+	return converter(_plot)
+
+def savefig(fig,ax,filename=None):
+	filename = filename or 'graph.png'
+	_plt.savefig(filename)
+png = plotter(savefig)
+png.__doc__ = 'Export graph to PNG file.'
 
 # going green
-del attributer, layout
+del converter,attributer,layout,plotter,savefig
 
-"""
-def view(edges,labels=True,filename='graph.png'):
-	"Draw edges to file."
-	g = nx.Graph()
-	g.add_edges_from(edges)
-
-	q=255.0
-	colors=[(0,48,86),(4,81,140),(0,161,217),(71,217,191),(242,208,59)]
-	colors=[(x/q,y/q,z/q) for x,y,z in colors]
-
-	xyz = nx.spring_layout(g, dim=3, k=1/len(g)**0.5)
-
-	vertices = [(str(n),xyz[n]) for n in g]
-	values = g.degree().values()
-	min_degree = min(values)
-	max_degree = max(values)-min_degree
-	n_colors = len(colors)
-	lines = np.array([(xyz[a],xyz[b]) for a,b in g.edges()])
-	line_color = []
-	fontsizes=[]
-	
-	for n in g:
-		a = (g.degree(n)-min_degree)/max_degree
-		fontsizes.append(a*3+1)
-
-	for a,b in g.edges():
-		ad = (g.degree(a)-min_degree)/max_degree
-		bd = (g.degree(b)-min_degree)/max_degree
-		avg = (ad+bd)/2.0
-		line_color.append(colors[math.floor(avg*n_colors)])
-
-	fontsizes=iter(fontsizes)
-	line_color = iter(line_color)
-	f = plt.figure()
-	ax = Axes3D(f)
-
-	ax.set_axis_bgcolor('black')
-
-	text = ax.text
-	plot = ax.plot
-	fontdict={'fontsize':3,'color':'white'}
-	def init():
-		if labels:
-			for label, (x, y, z) in vertices:
-				text(x, y, z, label, fontdict={'fontsize':next(fontsizes),'color':'white'})
-	
-		lineops={'marker':'o','lw':'0.1','ms':'0.25'}
-		
-		for line in lines:
-			color=next(line_color)
-			plot(line[:,0],
-				 line[:,1],
-				 line[:,2],
-				 mfc=color,
-				 color=color,
-				 **lineops)
-	
-	plt.axis('off')
-	animate = lambda x: ax.view_init(elev=0.0,azim=x)
-	anim = animation.FuncAnimation(f,animate,init_func=init,frames=360,interval=20)
-	anim.save('anim.mp4',fps=30,extra_args=['-vcodec','libx264'])
-#	for i in range(0,360):
-#		ax.view_init(30,i)	
-#		plt.savefig('graph{0}.png'.format(i),
-#				bbox_inches=None,
-#				pad_inches=0,
-#				transparent=False,
-#				format=None,
-#				papertype=None,
-#				edgecolor='black',
-#				facecolor='black')
-"""
