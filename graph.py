@@ -1,116 +1,138 @@
 import networkx as _nx
 import matplotlib.pyplot as _plt
 from mpl_toolkits.mplot3d import Axes3D as _axes
+from matplotlib.animation import FuncAnimation as _animation
 from numpy import array as _array
 
-# Higher order functions
-# ** These are not exposed **
+def is_graph(g):
+	return type(g) is _nx.Graph
 
-def _uses_graph_to(do_this):
-	"Ensures g is a NetworkX Graph, and calls do_this with g."
-	def _as_networkx(g,*args,**kwargs):
-		if not type(g) is _nx.Graph:
+def uses_graph_to(do_this):
+	def fn(g,*args,**kwargs):
+		if not is_graph(g):
 			g = of(g)
 		return do_this(g,*args,**kwargs)
-	return _as_networkx
+	return fn
 
-def _lists_nodes(attr,otherwise_get):
-	"Ensures g has attribute attr, otherwise adds attribute to all nodes with otherwise_get."
-	# lists node's <x> uses graph to get each node's <x>
-	def _attrs(g):
-		"List attributes available in g."
+def lists_nodes(attr,otherwise_get):
+	def attrs(g):
 		return g.node[next(g.nodes_iter())]
 	
-	def _get_attr(g,*args,**kwargs):
-		"Get attribute attr from g, or add attr."
-		if not attr in _attrs(g):
+	def get_attr(g,*args,**kwargs):
+		if not attr in attrs(g):
 			result = otherwise_get(g,*args,**kwargs)
 			_nx.set_node_attributes(g, attr, result)
 		return _nx.get_node_attributes(g,attr)
 
-	return _uses_graph_to(_get_attr)
+	return uses_graph_to(get_attr)
 
-def _plots_to(format):
-	"Plots with matplotlib ending plot with procedure."
-	# plots to <x> uses a graph and plots it to <x>
-	def _lines(g):
-		"List lines in g as pairs of 3d vectors ((x,y,z),(x,y,z))."
-		verts = xyz(g)
-		return _array(list(map(lambda edge: (verts[edge[0]],verts[edge[1]]), g.edges())))
-
-	def _plot(g, *args, **kwargs):
-		"Plot g."
-		fig = _plt.figure()
+def plotter(dim=3):
+	fig = _plt.figure()
+	
+	if dim is 2:
+		ax = fig.add_subplot(111)
+	else:
 		ax = _axes(fig)
-		ax_plot = ax.plot
 
-		for line in _lines(g):
-			ax_plot(line[:,0],line[:,1],line[:,2])
+	return fig, ax
 
-		return format(fig,ax,*args,**kwargs)
+def lines_and_labels(g):
+	verts = xyz(g)
+	labels = [(str(n),verts[n]) for n in g]
+	line = lambda edge: (verts[edge[0]],verts[edge[1]])
+	lines = _array(list(map(line,g.edges())))
 
-	return _uses_graph_to(_plot)
+	return lines, labels
 
-# main functions
+def plot3D(ax, g):
+	ax_plot = ax.plot
+
+	lines,labels = lines_and_labels(g)
+
+	for line in lines:
+		ax_plot(line[:,0], line[:,1], line[:,2])
+	
+	return ax
+
+def plot2D(ax, line):
+	ax.plot(line)
+	return ax
+
+def plots_to(format):
+	def run(x):
+		if is_graph(x):
+			fig, ax = plotter()
+			plot3D(ax,x)
+		else:
+			fig, ax = plotter(dim=2)
+			plot2D(ax,x)
+		format()
+		return ax
+	return run
+
+# exports ->
 
 def of(edges):
-	"Graph of adjacency list."
-	# graph.of([(1,2),(2,3)])
-	# wrapper for nx.Graph.add_edges_from
 	g = _nx.Graph()
 	g.add_edges_from(edges)
 	return g
 
-def 
+subgraphs = uses_graph_to(lambda g: _nx.connected_components(g))
 
-subgraphs = uses_graph_to(lambda g: nx.connected_components(g))
-subgraphs.__doc__ = 'Yield connected components of graph.'
-# graph.subgraphs([(1,2),(2,3),(4,5)]) -> [{1,2,3},{4,5}]
-
-def _find_3d_layout(g, dim=3, k=None):
-	"Graph nodes are assigned an (x,y,z)."
-	# exclusively for graph.xyz
-	# wrapper for nx.spring_layout
+def find_3d_layout(g, dim=3, k=None):
 	k=k or 1/len(g)**0.5
 	xyz = _nx.spring_layout(g, dim=3, k=k)
 	return xyz
 
-xyz = _lists_node('position',_find_3d_layout)
-xyz.__doc__ = '[0,1,...] -> {0:(x,y,z),1:(x,y,z),...}'
-# graph.xyz([(1,2),(2,3)]) will associate
-# the graphs nodes (ie [1,2,3]) with
-# 3 dimensional vectors (x,y,z)
+xyz = lists_nodes('position',find_3d_layout)
+degrees = lists_nodes('degree',lambda g: g.degree())
+betweeness = lists_nodes('betweeness',lambda g: _nx.betweeness_centrality(g,g.nodes()))
 
-degrees = _lists_node('degree',lambda g: g.degree())
-degrees.__doc__ = '[(1,2),(2,3)] -> {1:1,2:2,3:1}'
-# graph.degrees([(1,2),(2,3)]) will associate
-# the graphs nodes (ie [1,2,3]) with
-# its degree
+def rotator(g, ax):
+	plot3D(ax, g)
+	def rotate(i):
+		ax.view_init(elev=0.0,azim=(i % 360))
+	return rotate
 
-def _file(fig,ax,filename=None):
-	"Save matplotlib figure to file."
-	# exclusively for graph.png
-	# wrapper for matplotlib.pyplot.savefig
+def iter(verts,g):
+	repeat(g)
+	(of([(node, deg) for node, deg in g.degrees().items() if deg > i]) for i in reverse(range(360,0)))
+
+def accumlation(seq):
+	def accumulator(g, ax):
+		def accumulate(i):
+			print(i)
+
+def combine(*animators):
+	def combiner(g, ax):
+		animators = [animator(g, ax) for animator in animators]
+		def run_multiple(i):
+			for animate in animators:
+				animate(i)
+		return run_multiple
+	return combiner
+
+def make_video(g, filename=None, animator=rotator):
+	fig, ax = plotter()
+	filename = filename or 'graph.mp4'
+	anim = _animation(fig, animator(g, ax), frames=360, interval=20)
+	anim.save(filename, fps=30, extra_args=['-vcodec','libx264'])
+
+mp4=uses_graph_to(make_video)
+
+def image(filename=None):
 	filename = filename or 'graph.png'
 	_plt.savefig(filename)
 
-png = _plots_to(_file)
-png.__doc__ = 'Export graph to PNG file.'
-# graph.png([(1,2),(2,3)]) will save
-# a file named graph.png
+png = plots_to(image)
 
-def _gui(fig,ax):
-	"Show matplotlib gui."
-	# exclusively for gui
-	# wrapper for matplotlib.pyplot.show
-	_plt.show()
+def show():
+	plt.show()
 
-gui = _plots_to(_gui)
-gui.__doc__ = 'Show graph in matplotlib gui.'
-# graph.gui([(1,2),(2,3)]) will show
-# the graph in a matplotlib window
+gui = plots_to(show)
 
 # going green
-del _uses_graph_to,_lists_nodes, \
-	_plots_to,_find_3d_layout,_file
+del uses_graph_to,lists_nodes, \
+	plots_to,find_3d_layout, \
+	image, show
 
