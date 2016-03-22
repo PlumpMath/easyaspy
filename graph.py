@@ -44,6 +44,12 @@ def lines_and_labels(g):
 
 	return lines, labels
 
+def axis_colors(ax,colors):
+	bg, *lines = colors
+
+	_plt.axis('off')
+	ax.set_axis_bgcolor(bg)
+
 def plot3D(ax, g):
 	ax_plot = ax.plot
 
@@ -58,7 +64,7 @@ def plot2D(ax, line):
 	ax.plot(line)
 	return ax
 
-def plots_to(format):
+def plot_to(format):
 	def run(x):
 		if is_graph(x):
 			fig, ax = plotter()
@@ -88,26 +94,33 @@ xyz = lists_nodes('position',find_3d_layout)
 degrees = lists_nodes('degree',lambda g: g.degree())
 betweeness = lists_nodes('betweeness',lambda g: _nx.betweeness_centrality(g,g.nodes()))
 
-def rotator(g, ax):
+def rotator(g, ax, frames):
 	plot3D(ax, g)
 	def rotate(i):
 		ax.view_init(elev=0.0,azim=(i % 360))
 	return rotate
 
-def iter(verts,g):
-	repeat(g)
-	(of([(node, deg) for node, deg in g.degrees().items() if deg > i]) for i in reverse(range(360,0)))
+def chunk(i, g):
+	degs = degrees(g).items()
+	max_deg = max([v for k,v in degs]) - 1
+	i = i*max_deg
+	ccs = subgraphs(
+		g.subgraph(
+			[node for node, deg in degs if deg > i]))
+	ccs = sorted(ccs,key=len)
+	return g.subgraph(ccs[-1])
 
-def accumlation(seq):
-	def accumulator(g, ax):
-		def accumulate(i):
-			print(i)
+def accumulator(g, ax, frames):
+	seq = (chunk(i/(frames + 2.0),g) for i in reversed(range(frames + 2)))
+	def accumulate(i):
+		plot3D(ax, next(seq))
+	return accumulate
 
 def combine(*animators):
-	def combiner(g, ax):
-		animators = [animator(g, ax) for animator in animators]
+	def combiner(g, ax, frames):
+		animations = [x(g, ax, frames) for x in animators]
 		def run_multiple(i):
-			for animate in animators:
+			for animate in animations:
 				animate(i)
 		return run_multiple
 	return combiner
@@ -115,7 +128,8 @@ def combine(*animators):
 def make_video(g, filename=None, animator=rotator):
 	fig, ax = plotter()
 	filename = filename or 'graph.mp4'
-	anim = _animation(fig, animator(g, ax), frames=360, interval=20)
+	frames=360
+	anim = _animation(fig, animator(g, ax, frames), frames=frames, interval=20)
 	anim.save(filename, fps=30, extra_args=['-vcodec','libx264'])
 
 mp4=uses_graph_to(make_video)
@@ -124,15 +138,15 @@ def image(filename=None):
 	filename = filename or 'graph.png'
 	_plt.savefig(filename)
 
-png = plots_to(image)
+png = plot_to(image)
 
-def show():
+def window():
 	plt.show()
 
-gui = plots_to(show)
+gui = plot_to(window)
 
 # going green
 del uses_graph_to,lists_nodes, \
-	plots_to,find_3d_layout, \
-	image, show
+	plot_to,find_3d_layout, \
+	image, window, make_video
 
