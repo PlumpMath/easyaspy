@@ -1,5 +1,9 @@
+from .seq import key, value, lmap, \
+				 size, flatten, unique, \
+				 cycle, repeat
 import networkx as _nx
 import matplotlib.pyplot as _plt
+from math import ceil as _ceil
 from mpl_toolkits.mplot3d import Axes3D as _axes
 from matplotlib.animation import FuncAnimation as _animation
 from numpy import array as _array
@@ -15,11 +19,14 @@ def uses_graph_to(do_this):
 	return fn
 
 def lists_nodes(attr,otherwise_get):
-	def attrs(g):
-		return g.node[next(g.nodes_iter())]
+	def has_attr(g):
+		for n in g:
+			if attr not in g.node[n]:
+				return False
+		return True
 	
 	def get_attr(g,*args,**kwargs):
-		if not attr in attrs(g):
+		if not has_attr(g):
 			result = otherwise_get(g,*args,**kwargs)
 			_nx.set_node_attributes(g, attr, result)
 		return _nx.get_node_attributes(g,attr)
@@ -90,9 +97,14 @@ def find_3d_layout(g, dim=3, k=None):
 	xyz = _nx.spring_layout(g, dim=3, k=k)
 	return xyz
 
+def sorts(fn):
+	def wrapper(g,*args,**kwargs):
+		return list(reversed(sorted(fn(g).items(),key=value)))
+	return wrapper
+
 xyz = lists_nodes('position',find_3d_layout)
-degrees = lists_nodes('degree',lambda g: g.degree())
-betweeness = lists_nodes('betweeness',lambda g: _nx.betweeness_centrality(g,g.nodes()))
+degrees = sorts(lists_nodes('degree',lambda g: g.degree()))
+betweeness = sorts(lists_nodes('betweeness',lambda g: _nx.betweeness_centrality(g,g.nodes())))
 
 def rotator(g, ax, frames):
 	plot3D(ax, g)
@@ -100,20 +112,60 @@ def rotator(g, ax, frames):
 		ax.view_init(elev=0.0,azim=(i % 360))
 	return rotate
 
-def chunk(i, g):
-	degs = degrees(g).items()
-	max_deg = max([v for k,v in degs]) - 1
-	i = i*max_deg
-	ccs = subgraphs(
-		g.subgraph(
-			[node for node, deg in degs if deg > i]))
-	ccs = sorted(ccs,key=len)
-	return g.subgraph(ccs[-1])
+def adjacencies(G, v):
+	return list(unique(flatten([(a,b) for a,b in G.edges() if a == v or b == v])))	
 
-def accumulator(g, ax, frames):
-	seq = (chunk(i/(frames + 2.0),g) for i in reversed(range(frames + 2)))
+def chunk(G, n, S=None):
+	def chunk_iter(G, n, S, E, V):
+		if len(S) >= n:
+			return G.subgraph(S)
+		elif len(V) <= 1:
+			return chunk_iter(G, n, S, E, lmap(key, degrees(G)))
+		else:
+			v,*Vn = V 
+			if (v in E and v not in S) or E == []:
+				S.append(v)
+				E = E + adjacencies(G, v)
+	
+			return chunk_iter(G, n, S, E, Vn)
+
+	if S == None:
+		S = []
+		E = []
+	else:
+		E = list(flatten([adjacencies(G, v) for v in S]))
+
+		if n is 0:
+			return G.subgraph(S)
+
+	V = lmap(key, degrees(G))
+
+	if n == len(G):
+		return G
+	
+	assert n < len(G) and n > 0
+
+	return chunk_iter(G, n, S, E, V)
+
+def chunks(G, n):
+	l = len(G)
+	size = lambda i: i/n*l
+	yield chunk(G, size(1))
+	for i, S in zip(range(2,n+1), chunks(G, n)):
+		yield chunk(G, size(i), S=S.nodes())
+
+def accumulator(G, ax, frames):
+	len_G = len(G)
+	times = _ceil(frames/len_G)
+	seq = flatten(map(lambda x: [x]*times, chunks(G, len_G)))
+
 	def accumulate(i):
-		plot3D(ax, next(seq))
+		_plt.clf()
+		fig = _plt.gcf()
+		ax = _axes(fig)
+		g = next(seq)
+		plot3D(ax, g)
+		ax.view_init(elev=0.0,azim=(i % 360))
 	return accumulate
 
 def combine(*animators):
@@ -125,10 +177,9 @@ def combine(*animators):
 		return run_multiple
 	return combiner
 
-def make_video(g, filename=None, animator=rotator):
+def make_video(g, filename=None, animator=rotator, frames=360):
 	fig, ax = plotter()
 	filename = filename or 'graph.mp4'
-	frames=360
 	anim = _animation(fig, animator(g, ax, frames), frames=frames, interval=20)
 	anim.save(filename, fps=30, extra_args=['-vcodec','libx264'])
 
@@ -147,6 +198,6 @@ gui = plot_to(window)
 
 # going green
 del uses_graph_to,lists_nodes, \
-	plot_to,find_3d_layout, \
+	plot_to, \
 	image, window, make_video
 

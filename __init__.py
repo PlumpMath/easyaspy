@@ -1,7 +1,7 @@
 from .seq import *
-from .graph import *
 from .expr import *
 
+from . import graph
 from . import web
 from . import wiki
 

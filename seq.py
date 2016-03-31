@@ -17,6 +17,9 @@ def size(seq):
 	"[10,11,12] -> 3"
 	return sum(1 for x in seq)
 
+def lmap(fn, seq):
+	return list(map(fn, seq))
+
 def pairwise(seq):
 	"[1,2,3,...] -> [(1,2),(2,3),...]"
 	a,b = tee(seq)
