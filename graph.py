@@ -1,6 +1,4 @@
-from .seq import key, value, lmap, \
-				 size, flatten, unique, \
-				 cycle, repeat
+from .seq import key, value, lmap, size, flatten, unique
 import networkx as _nx
 import matplotlib.pyplot as _plt
 from math import ceil as _ceil
@@ -158,13 +156,11 @@ def accumulator(G, ax, frames):
 	len_G = len(G)
 	times = _ceil(frames/len_G)
 	seq = flatten(map(lambda x: [x]*times, chunks(G, len_G)))
-
 	def accumulate(i):
 		_plt.clf()
 		fig = _plt.gcf()
 		ax = _axes(fig)
-		g = next(seq)
-		plot3D(ax, g)
+		plot3D(ax, next(seq))
 		ax.view_init(elev=0.0,azim=(i % 360))
 	return accumulate
 
@@ -192,7 +188,7 @@ def image(filename=None):
 png = plot_to(image)
 
 def window():
-	plt.show()
+	_plt.show()
 
 gui = plot_to(window)
 
