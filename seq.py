@@ -1,10 +1,13 @@
 from itertools import *
+from re import finditer as _find
 import codecs as _codecs
+from ._main import times as _times
 
 first = next
 key = lambda x: x[0]
 value = lambda x: x[1]
 identity = lambda x: x
+empty = lambda x: not x
 
 def keys(seq):
 	return (key(s) for s in seq)
@@ -80,4 +83,16 @@ def write(filename, msg):
 
 def output(filename, seq):
 	return (write(filename.format(i), s) for i, s in enumerate(seq))
+
+def itereval(text):
+	"'(['a','b','c'], ['d','e','f'], ...) -> [['a','b','c'],['d','e','f'],...]"
+	return (eval(text[a:b]) for a,b in \
+				grouper(2, chain([1],
+					  			 flatten(map(lambda x: (x[0]+1,x[1]-1),
+						  					 map(lambda x: x.span(), 
+							  					 _find(r'\],\s?\[', text)))),
+								 [-1])))
+
+def chunk_and_cache(seq, name='chunk{0:03d}.py', size=15360):
+	return enumerate(keys(_times(output(name, grouper(size, seq)))))
 

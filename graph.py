@@ -90,6 +90,10 @@ def of(edges):
 
 subgraphs = uses_graph_to(lambda g: _nx.connected_components(g))
 
+def massive_layout():
+	while True:
+		yield positions
+
 def find_3d_layout(g, dim=3, k=None):
 	k=k or 1/len(g)**0.5
 	xyz = _nx.spring_layout(g, dim=3, k=k)
