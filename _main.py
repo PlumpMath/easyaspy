@@ -16,7 +16,7 @@ def times(seq):
         yield now() - start, s
         start = now()
 
-open = lambda x,y: codecs.open(x, y, 'utf-8')
+open = lambda x,y: _codecs.open(x, y, 'utf-8')
 read = lambda x: open(x, 'r')
 write = lambda x: open(x, 'w')
 append = lambda x: open(x, 'a')
