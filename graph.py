@@ -1,4 +1,4 @@
-from .seq import key, value, lmap, size, flatten, unique
+from .seq import key, value, listmap, size, flatten, unique
 import networkx as _nx
 import matplotlib.pyplot as _plt
 from math import ceil as _ceil
@@ -122,7 +122,7 @@ def chunk(G, n, S=None):
 		if len(S) >= n:
 			return G.subgraph(S)
 		elif len(V) <= 1:
-			return chunk_iter(G, n, S, E, lmap(key, degrees(G)))
+			return chunk_iter(G, n, S, E, listmap(key, degrees(G)))
 		else:
 			v,*Vn = V 
 			if (v in E and v not in S) or E == []:
@@ -140,7 +140,7 @@ def chunk(G, n, S=None):
 		if n is 0:
 			return G.subgraph(S)
 
-	V = lmap(key, degrees(G))
+	V = listmap(key, degrees(G))
 
 	if n == len(G):
 		return G
