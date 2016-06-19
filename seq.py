@@ -3,12 +3,14 @@ from ._main import *
 from re import finditer as _find
 import codecs as _codecs
 import random as _random
+from random import random
+import numpy as np
 
 first = next
 key = lambda x: x[0]
 value = lambda x: x[1]
 identity = lambda x: x
-empty = lambda x: not x
+empty = lambda x: not x # use any
 
 def keys(seq):
     return (key(s) for s in seq)
@@ -16,11 +18,45 @@ def keys(seq):
 def values(seq):
     return (value(s) for s in seq)
 
+def mapValues(fn, seq):
+    return ((k, fn(v)) for k, v in seq)
+
+def mapKeys(fn, seq):
+    return ((fn(k), v) for k, v in seq)
+
+def mapVectors(fn, seq):
+    return ([fn(x) for x in v] for v in seq)
+
+def mapLabels(fn, seq):
+    return (fn(*v) for v in seq)
+
+def mapTee(fn, seq):
+    return ((x, fn(x)) for x in seq)
+
+def reduceVectors(fn, seq):
+    for v in seq:
+        x = initial
+        for y in v:
+            x = fn(x, y)
+        yield x
+
+def reduceValueVectors(fn, seq, initial=0):
+    for k, v in seq:
+        x = initial
+        for y in v:
+            x = fn(x, y)
+        yield k, x
+
+def withLengths(vecs):
+    return mapValues(lambda x: x**0.5,
+            reduceValueVectors(lambda x, y: x + y,
+                mapTee(lambda v: [x**2 for x in v],
+                    vectors())))
 def integers():
     "None -> [1,2,3,4,5,...]"
     return count(1)
 
-def multiples_of(n):
+def multiplesOf(n):
     "3 -> [3,6,9,...]"
     return map(lambda x: x*n, integers())
 
@@ -32,14 +68,19 @@ def take(n, seq):
     "3 integers() -> [1,2,3]"
     return list(islice(seq, n))
 
-def random():
-    for i in integers():
-        yield _random.random()
+def randoms():
+    return (random() for i in integers())
+
+def vectors(n=3):
+    return zip(*[randoms()]*n)
 
 def randof(options):
     options = list(options)
     for i in integers():
         yield _random.choice(options)
+
+def rms(seq):
+    return np.sqrt(np.mean(np.square(list(seq))))
 
 def randbool():
     return randof([True, False])
@@ -55,12 +96,27 @@ def listmap(fn, seq):
     return list(map(fn, seq))
 
 def deeplist(seq):
-    return lmap(lambda x: list(x), seq)
+    return listmap(lambda x: list(x), seq)
 
 def grouper(n, seq, default=None):
     "2 [1,2,3,4,...] -> [(1,2),(3,4),...]"
     args = [iter(seq)] * n
     return zip_longest(*args, fillvalue=default)
+
+def everyNth(n, seq):
+    return (x for i, x in seq if i % n is 0)
+
+def everyOther(seq):
+    return everyNth(2, seq)
+
+def groupsOf(n, seq):
+    def iterators(iterator):
+        for i in range(n):
+            a, iterator = tee(iterator)
+            yield a
+            next(iterator)
+
+    return zip(*iterators(iter(seq)))
 
 def pairwise(seq):
     "[1,2,3,...] -> [(1,2),(2,3),...]"
